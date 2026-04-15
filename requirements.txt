@@ -1,0 +1,6 @@
+flask
+groq
+sentence-transformers
+vaderSentiment
+scikit-learn
+numpy

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArgueMate — Contrarian Teaching Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0f0e0d;
+  --surface:        #181714;
+  --surface-2:      #1e1c1a;
+  --surface-3:      #252220;
+  --border:         #2e2b28;
+  --text:           #e8e6e3;
+  --text-muted:     #7a7773;
+  --text-faint:     #4a4744;
+  --primary:        #c8703a;
+  --primary-hover:  #d4844f;
+  --primary-dim:    rgba(200,112,58,0.12);
+  --correct:        #4a9e6b;
+  --correct-dim:    rgba(74,158,107,0.12);
+  --incorrect:      #c85a5a;
+  --incorrect-dim:  rgba(200,90,90,0.12);
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-full: 9999px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --font-body: 'Inter', sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --transition: 160ms cubic-bezier(0.16,1,0.3,1);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+body { font-family: var(--font-body); background: var(--bg); color: var(--text); height: 100dvh; display: flex; overflow: hidden; font-size: 15px; line-height: 1.6; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 260px; min-width: 260px; background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 20px 16px; gap: 24px;
+}
+.logo { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.logo-icon {
+  width: 36px; height: 36px; border-radius: var(--radius-md);
+  background: var(--primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.logo-text { font-family: var(--font-display); font-size: 20px; color: var(--text); letter-spacing: -0.3px; }
+.logo-text span { color: var(--primary); }
+
+.new-chat-btn {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: var(--primary-dim); border: 1px solid rgba(200,112,58,0.2);
+  border-radius: var(--radius-md); color: var(--primary); font-size: 14px;
+  font-weight: 500; cursor: pointer; transition: all var(--transition); width: 100%;
+}
+.new-chat-btn:hover { background: rgba(200,112,58,0.2); }
+
+.sidebar-section { display: flex; flex-direction: column; gap: 4px; }
+.sidebar-label { font-size: 11px; font-weight: 600; color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; padding: 0 8px 6px; }
+
+.concepts-list { display: flex; flex-direction: column; gap: 2px; max-height: 340px; overflow-y: auto; }
+.concept-chip {
+  font-size: 12px; color: var(--text-muted); padding: 5px 8px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: all var(--transition); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.concept-chip:hover { background: var(--surface-3); color: var(--text); }
+
+.sidebar-footer { margin-top: auto; font-size: 11px; color: var(--text-faint); line-height: 1.5; padding: 12px; background: var(--surface-2); border-radius: var(--radius-md); }
+.sidebar-footer strong { color: var(--text-muted); }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── HEADER ── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 28px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0;
+}
+.header-title { font-size: 15px; font-weight: 500; color: var(--text-muted); }
+.header-title span { color: var(--text); font-weight: 600; }
+.nlp-badges { display: flex; gap: 6px; }
+.badge {
+  font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: var(--radius-full);
+  border: 1px solid var(--border); color: var(--text-muted); background: var(--surface-2);
+  letter-spacing: 0.02em;
+}
+.badge.active { color: var(--primary); border-color: rgba(200,112,58,0.3); background: var(--primary-dim); }
+
+/* ── CHAT AREA ── */
+.chat-area { flex: 1; overflow-y: auto; padding: 32px 28px; display: flex; flex-direction: column; gap: 24px; }
+
+/* ── EMPTY STATE ── */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px; text-align: center; }
+.empty-icon { font-size: 48px; opacity: 0.3; }
+.empty-state h2 { font-family: var(--font-display); font-size: 28px; color: var(--text); font-weight: 400; font-style: italic; }
+.empty-state p { font-size: 14px; color: var(--text-muted); max-width: 360px; line-height: 1.7; }
+.starter-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+.starter-chip {
+  font-size: 13px; padding: 7px 14px; border-radius: var(--radius-full);
+  border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
+  background: var(--surface-2); transition: all var(--transition);
+}
+.starter-chip:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-dim); }
+
+/* ── MESSAGE BUBBLES ── */
+.message { display: flex; flex-direction: column; gap: 6px; max-width: 720px; animation: fadeUp 0.25s ease; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.message.user { align-self: flex-end; align-items: flex-end; }
+.message.assistant { align-self: flex-start; align-items: flex-start; }
+
+.user-inputs { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.user-bubble {
+  padding: 12px 16px; border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+  background: var(--surface-3); border: 1px solid var(--border); font-size: 14px;
+  max-width: 480px; text-align: right;
+}
+.user-bubble .label { font-size: 11px; color: var(--text-faint); font-weight: 500; margin-bottom: 4px; }
+.user-bubble .value { color: var(--text); }
+
+.assistant-bubble {
+  padding: 16px 18px; border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
+  background: var(--surface-2); border: 1px solid var(--border); font-size: 14.5px;
+  line-height: 1.75; color: var(--text); max-width: 600px;
+}
+
+.meta-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.meta-tag {
+  font-size: 11px; padding: 2px 8px; border-radius: var(--radius-full);
+  font-weight: 500; letter-spacing: 0.02em;
+}
+.meta-correct { background: var(--correct-dim); color: var(--correct); }
+.meta-incorrect { background: var(--incorrect-dim); color: var(--incorrect); }
+.meta-neutral { background: var(--surface-3); color: var(--text-muted); }
+.meta-score { font-size: 11px; color: var(--text-faint); }
+
+/* ── TYPING INDICATOR ── */
+.typing { display: flex; align-items: center; gap: 5px; padding: 14px 18px; background: var(--surface-2); border-radius: var(--radius-lg); border: 1px solid var(--border); width: fit-content; }
+.typing span { width: 6px; height: 6px; background: var(--text-faint); border-radius: 50%; animation: bounce 1.2s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+
+/* ── INPUT AREA ── */
+.input-area {
+  padding: 20px 28px; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0;
+}
+.input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.input-group { display: flex; flex-direction: column; gap: 5px; }
+.input-group label { font-size: 11px; font-weight: 600; color: var(--text-faint); letter-spacing: 0.07em; text-transform: uppercase; }
+.input-group textarea {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md);
+  color: var(--text); font-family: var(--font-body); font-size: 14px; line-height: 1.5;
+  padding: 10px 13px; resize: none; height: 72px; transition: border-color var(--transition);
+  width: 100%;
+}
+.input-group textarea:focus { outline: none; border-color: var(--primary); }
+.input-group textarea::placeholder { color: var(--text-faint); }
+
+.input-footer { display: flex; align-items: center; justify-content: space-between; }
+.char-hints { font-size: 12px; color: var(--text-faint); }
+
+.send-btn {
+  display: flex; align-items: center; gap: 8px; padding: 10px 20px;
+  background: var(--primary); border-radius: var(--radius-md); color: white;
+  font-size: 14px; font-weight: 600; cursor: pointer; border: none;
+  transition: all var(--transition); letter-spacing: 0.01em;
+}
+.send-btn:hover:not(:disabled) { background: var(--primary-hover); }
+.send-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .input-grid { grid-template-columns: 1fr; }
+  .chat-area { padding: 20px 16px; }
+  .input-area { padding: 16px; }
+  .header { padding: 12px 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        <line x1="9" y1="10" x2="15" y2="10"/>
+      </svg>
+    </div>
+    <span class="logo-text">Argue<span>Mate</span></span>
+  </div>
+
+  <button class="new-chat-btn" onclick="resetChat()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+    New Conversation
+  </button>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Topics Covered</div>
+    <div class="concepts-list" id="conceptsList"></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <strong>NLP Features Active</strong><br>
+    A — Intent Detection · TF-IDF<br>
+    B — Sentiment Analysis · VADER<br>
+    D — Text Similarity · SBERT
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <header class="header">
+    <div class="header-title">Module 3 · <span>Unfolding Recurrent Neural Networks</span></div>
+    <div class="nlp-badges">
+      <span class="badge active">Intent Detection</span>
+      <span class="badge active">Sentiment Analysis</span>
+      <span class="badge active">Text Similarity</span>
+    </div>
+  </header>
+
+  <div class="chat-area" id="chatArea">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🧠</div>
+      <h2>Go ahead, I dare you to be wrong.</h2>
+      <p>Ask me anything about RNNs, LSTMs, GRUs, attention, or seq2seq — and tell me what you think you know.</p>
+      <div class="starter-chips">
+        <div class="starter-chip" onclick="fillStarter('What is an LSTM?', 'LSTM uses gates to control what information to keep or forget across timesteps.')">LSTM basics</div>
+        <div class="starter-chip" onclick="fillStarter('What is the vanishing gradient problem?', 'Gradients become very small so the network cannot learn from distant inputs.')">Vanishing gradient</div>
+        <div class="starter-chip" onclick="fillStarter('How does attention work?', 'Attention allows the decoder to look at all encoder hidden states using weighted sums.')">Attention mechanism</div>
+        <div class="starter-chip" onclick="fillStarter('What is teacher forcing?', 'Teacher forcing means feeding the model its own predictions as inputs during training.')">Teacher forcing</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-grid">
+      <div class="input-group">
+        <label>Your Question</label>
+        <textarea id="questionInput" placeholder="e.g. What is the forget gate in an LSTM?" rows="3"></textarea>
+      </div>
+      <div class="input-group">
+        <label>Your Understanding</label>
+        <textarea id="understandingInput" placeholder="e.g. The forget gate decides which parts of the cell state to erase..." rows="3"></textarea>
+      </div>
+    </div>
+    <div class="input-footer">
+      <span class="char-hints">Enter a concept question + your current understanding of it</span>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2 11 13M22 2 15 22 11 13 2 9l20-7z"/></svg>
+        Disagree with me
+      </button>
+    </div>
+  </div>
+</main>
+
+<script>
+const SESSION_ID = 'session_' + Math.random().toString(36).slice(2);
+let turnCount = 0;
+
+const CONCEPTS = [
+  "RNN Basics","Hidden State","Unrolling RNN","Parameter Sharing","RNN Types",
+  "BPTT","Vanishing Gradient","Exploding Gradient","Gradient Clipping",
+  "LSTM","Cell State","Forget Gate","Input Gate","Output Gate","LSTM Equations",
+  "GRU","Reset Gate","Update Gate","GRU vs LSTM",
+  "Seq2Seq","Context Vector","Teacher Forcing","Attention Mechanism","Bahdanau vs Luong",
+  "Bidirectional RNN","Deep RNN","RNN Language Model","Perplexity",
+  "RNN Dropout","Embedding Layer","RNN vs Transformer","RNN Limitations"
+];
+
+// Populate sidebar concept list
+const list = document.getElementById('conceptsList');
+CONCEPTS.forEach(c => {
+  const chip = document.createElement('div');
+  chip.className = 'concept-chip';
+  chip.textContent = c;
+  chip.onclick = () => {
+    document.getElementById('questionInput').value = 'What is ' + c + '?';
+    document.getElementById('questionInput').focus();
+  };
+  list.appendChild(chip);
+});
+
+function fillStarter(q, u) {
+  document.getElementById('questionInput').value = q;
+  document.getElementById('understandingInput').value = u;
+  document.getElementById('questionInput').focus();
+}
+
+async function sendMessage() {
+  const question      = document.getElementById('questionInput').value.trim();
+  const understanding = document.getElementById('understandingInput').value.trim();
+  if (!question || !understanding) return;
+
+  document.getElementById('emptyState')?.remove();
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('questionInput').value = '';
+  document.getElementById('understandingInput').value = '';
+  turnCount++;
+
+  const chatArea = document.getElementById('chatArea');
+
+  // User message
+  const userMsg = document.createElement('div');
+  userMsg.className = 'message user';
+  userMsg.innerHTML = `
+    <div class="user-inputs">
+      <div class="user-bubble">
+        <div class="label">Question</div>
+        <div class="value">${escHtml(question)}</div>
+      </div>
+      <div class="user-bubble">
+        <div class="label">My Understanding</div>
+        <div class="value">${escHtml(understanding)}</div>
+      </div>
+    </div>`;
+  chatArea.appendChild(userMsg);
+
+  // Typing indicator
+  const typing = document.createElement('div');
+  typing.className = 'message assistant';
+  typing.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  chatArea.appendChild(typing);
+  chatArea.scrollTop = chatArea.scrollHeight;
+
+  try {
+    const res  = await fetch('/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ session_id: SESSION_ID, question, understanding })
+    });
+    const data = await res.json();
+    typing.remove();
+
+    const labelClass = data.label === 'CORRECT' ? 'meta-correct' : data.label === 'INCORRECT' ? 'meta-incorrect' : 'meta-neutral';
+    const labelText  = data.label || 'OUT OF SCOPE';
+    const simText    = data.similarity != null ? `Similarity: ${(data.similarity*100).toFixed(1)}%` : '';
+    const toneText   = data.tone ? `Tone: ${data.tone}` : '';
+    const conceptText= data.concept ? `Concept: ${data.concept.replace(/_/g,' ')}` : '';
+
+    const asstMsg = document.createElement('div');
+    asstMsg.className = 'message assistant';
+    asstMsg.innerHTML = `
+      <div class="meta-row">
+        <span class="meta-tag ${labelClass}">${labelText}</span>
+        ${simText ? `<span class="meta-score">${simText}</span>` : ''}
+        ${toneText ? `<span class="meta-score">${toneText}</span>` : ''}
+        ${conceptText ? `<span class="meta-score">${conceptText}</span>` : ''}
+      </div>
+      <div class="assistant-bubble">${escHtml(data.response)}</div>`;
+    chatArea.appendChild(asstMsg);
+  } catch(e) {
+    typing.remove();
+    const errMsg = document.createElement('div');
+    errMsg.className = 'message assistant';
+    errMsg.innerHTML = '<div class="assistant-bubble" style="color:var(--incorrect)">Something went wrong. Please try again.</div>';
+    chatArea.appendChild(errMsg);
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+async function resetChat() {
+  await fetch('/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id: SESSION_ID}) });
+  const chatArea = document.getElementById('chatArea');
+  chatArea.innerHTML = `
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🧠</div>
+      <h2>Go ahead, I dare you to be wrong.</h2>
+      <p>Ask me anything about RNNs, LSTMs, GRUs, attention, or seq2seq — and tell me what you think you know.</p>
+      <div class="starter-chips">
+        <div class="starter-chip" onclick="fillStarter('What is an LSTM?','LSTM uses gates to control what information to keep or forget across timesteps.')">LSTM basics</div>
+        <div class="starter-chip" onclick="fillStarter('What is the vanishing gradient problem?','Gradients become very small so the network cannot learn from distant inputs.')">Vanishing gradient</div>
+        <div class="starter-chip" onclick="fillStarter('How does attention work?','Attention allows the decoder to look at all encoder hidden states using weighted sums.')">Attention mechanism</div>
+        <div class="starter-chip" onclick="fillStarter('What is teacher forcing?','Teacher forcing means feeding the model its own predictions as inputs during training.')">Teacher forcing</div>
+      </div>
+    </div>`;
+  turnCount = 0;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Ctrl+Enter to send
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') sendMessage();
+});
+</script>
+</body>
+</html>
