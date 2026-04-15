@@ -6,6 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from groq import Groq
 import numpy as np
 import os
+import threading
 
 app = Flask(__name__)
 
@@ -45,24 +46,41 @@ KNOWLEDGE_BASE["embedding_layer"] = {"aliases": ["word embedding rnn", "embeddin
 KNOWLEDGE_BASE["rnn_vs_transformer"] = {"aliases": ["rnn vs transformer", "why transformers replaced rnn", "rnn limitations", "transformer better than rnn", "attention vs recurrence"], "explanation": "RNNs process sequences step-by-step making them slow to train and unable to parallelize across timesteps. Transformers use self-attention to process all positions simultaneously, enabling full parallelism and handling very long-range dependencies more directly. However, RNNs are more memory-efficient for very long sequences and still used in streaming inference settings."}
 KNOWLEDGE_BASE["rnn_limitations"] = {"aliases": ["rnn limitations", "problems with rnn", "rnn disadvantages", "rnn weaknesses", "why rnn is hard to train", "rnn challenges"], "explanation": "Key RNN limitations: (1) Vanishing/exploding gradients make learning long-range dependencies difficult. (2) Sequential computation prevents parallelization, making training slow. (3) Fixed-size hidden state bottlenecks information capacity. (4) Difficult to capture hierarchical structure. LSTMs/GRUs address (1), attention addresses (3), and transformers address (2) and (4)."}
 
-# ── MODEL INIT ─────────────────────────────────────────────────────────────────
-print("Loading NLP models...")
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
-vader    = SentimentIntensityAnalyzer()
+# ── LAZY MODEL STATE ───────────────────────────────────────────────────────────
+_models_loaded = False
+_model_lock = threading.Lock()
+embedder     = None
+vader        = None
+tfidf        = None
+tfidf_matrix = None
+alias_labels = []
 
-alias_texts, alias_labels = [], []
-for concept, data in KNOWLEDGE_BASE.items():
-    for alias in data["aliases"]:
-        alias_texts.append(alias)
-        alias_labels.append(concept)
+def load_models():
+    global _models_loaded, embedder, vader, tfidf, tfidf_matrix, alias_labels
+    if _models_loaded:
+        return
+    with _model_lock:
+        if _models_loaded:  # double-checked locking
+            return
+        print("Loading NLP models...")
+        embedder = SentenceTransformer("all-MiniLM-L6-v2")
+        vader    = SentimentIntensityAnalyzer()
 
-tfidf        = TfidfVectorizer()
-tfidf_matrix = tfidf.fit_transform(alias_texts)
+        alias_texts = []
+        alias_labels = []
+        for concept, data in KNOWLEDGE_BASE.items():
+            for alias in data["aliases"]:
+                alias_texts.append(alias)
+                alias_labels.append(concept)
 
-for concept, data in KNOWLEDGE_BASE.items():
-    data["embedding"] = embedder.encode(data["explanation"], convert_to_tensor=True)
+        tfidf        = TfidfVectorizer()
+        tfidf_matrix = tfidf.fit_transform(alias_texts)
 
-print(f"Pipeline ready. {len(KNOWLEDGE_BASE)} concepts loaded.")
+        for concept, data in KNOWLEDGE_BASE.items():
+            data["embedding"] = embedder.encode(data["explanation"], convert_to_tensor=True)
+
+        _models_loaded = True
+        print(f"Pipeline ready. {len(KNOWLEDGE_BASE)} concepts loaded.")
 
 # ── GROQ CLIENT ────────────────────────────────────────────────────────────────
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
@@ -123,24 +141,30 @@ def run_pipeline(question, user_understanding):
     concept = detect_intent(question)
     if not concept:
         return {"label": "OUT_OF_SCOPE", "concept": None, "similarity": None, "tone": None}
-    sim     = evaluate_understanding(user_understanding, concept)
-    sent    = analyze_sentiment(user_understanding)
+    sim  = evaluate_understanding(user_understanding, concept)
+    sent = analyze_sentiment(user_understanding)
     return {"concept": concept, "label": sim["label"], "similarity": sim["similarity"], "tone": sent["tone"]}
 
 # ── SESSION STORE ──────────────────────────────────────────────────────────────
-sessions = {}  # session_id -> list of messages
+sessions = {}
 
 # ── FLASK ROUTES ───────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html")
 
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok", "models_loaded": _models_loaded})
+
 @app.route("/chat", methods=["POST"])
 def chat():
-    data            = request.json
-    session_id      = data.get("session_id", "default")
-    question        = data.get("question", "").strip()
-    understanding   = data.get("understanding", "").strip()
+    load_models()  # lazy load — no-op after first call
+
+    data          = request.json
+    session_id    = data.get("session_id", "default")
+    question      = data.get("question", "").strip()
+    understanding = data.get("understanding", "").strip()
 
     if not question or not understanding:
         return jsonify({"error": "Both fields are required."}), 400
@@ -188,4 +212,6 @@ def reset():
     return jsonify({"status": "reset"})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
+    
